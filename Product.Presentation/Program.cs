@@ -67,6 +67,7 @@ builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<IProductRepository, ProductRepository>();
 builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddSingleton<IMessageBus, RabbitMqMessageBus>();
 builder.Services.AddControllers();
 
 var app = builder.Build();

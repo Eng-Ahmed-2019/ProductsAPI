@@ -1,9 +1,10 @@
-﻿using ProductDTOs;
-using Newtonsoft.Json;
+﻿using Microsoft.Extensions.Configuration;
+using ProductBusiness.Interfaces;
+using System.Net.Http.Headers;
 using ProductData.Interfaces;
 using ProductEntities.Models;
-using System.Net.Http.Headers;
-using ProductBusiness.Interfaces;
+using Newtonsoft.Json;
+using ProductDTOs;
 
 namespace ProductBusiness.Services
 {
@@ -11,11 +12,15 @@ namespace ProductBusiness.Services
     {
         private readonly HttpClient _httpClient;
         private readonly IProductRepository _productRepo;
+        private readonly IMessageBus _messageBus;
+        private readonly IConfiguration _config;
 
-        public ProductService(IProductRepository repository, HttpClient httpClient)
+        public ProductService(IProductRepository repository, HttpClient httpClient, IMessageBus bus, IConfiguration configuration)
         {
             _productRepo = repository;
             _httpClient = httpClient;
+            _messageBus = bus;
+            _config = configuration;
         }
 
         public async Task<IEnumerable<ProductDto>> GetAllAsync(string token)
@@ -105,6 +110,21 @@ namespace ProductBusiness.Services
             await _productRepo.AddAsync(product);
             await _productRepo.SaveChangesAsync();
 
+            var message = new
+            {
+                ProductId = product.Id,
+                product.Name,
+                product.Price,
+                product.CategoryId,
+                DateCreated = DateTime.UtcNow
+            };
+
+            _messageBus.Publish(
+                message,
+                _config["RabbitMQ:ExchangeName"] ?? "product_exchange",
+                _config["RabbitMQ:RoutingKey"] ?? "product.created"
+            );
+
             var request = new HttpRequestMessage(HttpMethod.Get, $"https://localhost:7286/api/categories/{dto.CategoryId}");
             if (!string.IsNullOrEmpty(token))
                 request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
@@ -146,6 +166,21 @@ namespace ProductBusiness.Services
             product.CategoryId = dto.CategoryId;
 
             _productRepo.Update(product);
+
+            var message = new
+            {
+                ProductId = product.Id,
+                product.Name,
+                product.Price,
+                product.CategoryId,
+                DateCreated = DateTime.UtcNow
+            };
+            _messageBus.Publish(
+                message,
+                _config["RabbitMQ:ExchangeName"] ?? "product_exchange",
+                _config["RabbitMQ:RoutingKey"] ?? "product.created"
+            );
+
             return await _productRepo.SaveChangesAsync();
         }
 
