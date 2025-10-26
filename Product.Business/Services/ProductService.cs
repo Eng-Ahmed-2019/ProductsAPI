@@ -12,15 +12,15 @@ namespace ProductBusiness.Services
     {
         private readonly HttpClient _httpClient;
         private readonly IProductRepository _productRepo;
-        private readonly IMessageBus _messageBus;
         private readonly IConfiguration _config;
+        private readonly ProducerService _producerService;
 
-        public ProductService(IProductRepository repository, HttpClient httpClient, IMessageBus bus, IConfiguration configuration)
+        public ProductService(IProductRepository repository, HttpClient httpClient, IConfiguration configuration, ProducerService producerService)
         {
             _productRepo = repository;
             _httpClient = httpClient;
-            _messageBus = bus;
             _config = configuration;
+            _producerService = producerService;
         }
 
         public async Task<IEnumerable<ProductDto>> GetAllAsync(string token)
@@ -110,20 +110,7 @@ namespace ProductBusiness.Services
             await _productRepo.AddAsync(product);
             await _productRepo.SaveChangesAsync();
 
-            var message = new
-            {
-                ProductId = product.Id,
-                product.Name,
-                product.Price,
-                product.CategoryId,
-                DateCreated = DateTime.UtcNow
-            };
-
-            _messageBus.Publish(
-                message,
-                _config["RabbitMQ:ExchangeName"] ?? "product_exchange",
-                _config["RabbitMQ:RoutingKey"] ?? "product.created"
-            );
+            await _producerService.SendMessageAsync($"New Product Added: \"{product.Name}\"");
 
             var request = new HttpRequestMessage(HttpMethod.Get, $"https://localhost:7286/api/categories/{dto.CategoryId}");
             if (!string.IsNullOrEmpty(token))
@@ -167,19 +154,7 @@ namespace ProductBusiness.Services
 
             _productRepo.Update(product);
 
-            var message = new
-            {
-                ProductId = product.Id,
-                product.Name,
-                product.Price,
-                product.CategoryId,
-                DateCreated = DateTime.UtcNow
-            };
-            _messageBus.Publish(
-                message,
-                _config["RabbitMQ:ExchangeName"] ?? "product_exchange",
-                _config["RabbitMQ:RoutingKey"] ?? "product.created"
-            );
+            await _producerService.SendMessageAsync($"Product: \"{product.Name}\" was updated");
 
             return await _productRepo.SaveChangesAsync();
         }

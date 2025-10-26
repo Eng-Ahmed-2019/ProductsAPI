@@ -66,8 +66,8 @@ builder.Services.AddSwaggerGen(options =>
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<IProductRepository, ProductRepository>();
 builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
+builder.Services.AddSingleton<ProductBusiness.Services.ProductService>();
 builder.Services.AddHttpContextAccessor();
-builder.Services.AddSingleton<IMessageBus, RabbitMqMessageBus>();
 builder.Services.AddControllers();
 
 var app = builder.Build();
