@@ -152,10 +152,9 @@ namespace ProductBusiness.Services
             product.ImageUrl = dto.ImageUrl;
             product.CategoryId = dto.CategoryId;
 
-            _productRepo.Update(product);
-
             await _producerService.SendMessageAsync($"Product: \"{product.Name}\" was updated");
 
+            _productRepo.Update(product);
             return await _productRepo.SaveChangesAsync();
         }
 
