@@ -13,14 +13,12 @@ namespace ProductBusiness.Services
         private readonly HttpClient _httpClient;
         private readonly IProductRepository _productRepo;
         private readonly IConfiguration _config;
-        private readonly ProducerService _producerService;
 
-        public ProductService(IProductRepository repository, HttpClient httpClient, IConfiguration configuration, ProducerService producerService)
+        public ProductService(IProductRepository repository, HttpClient httpClient, IConfiguration configuration)
         {
             _productRepo = repository;
             _httpClient = httpClient;
             _config = configuration;
-            _producerService = producerService;
         }
 
         public async Task<IEnumerable<ProductDto>> GetAllAsync(string token)
@@ -110,8 +108,6 @@ namespace ProductBusiness.Services
             await _productRepo.AddAsync(product);
             await _productRepo.SaveChangesAsync();
 
-            await _producerService.SendMessageAsync($"New Product Added: \"{product.Name}\"");
-
             var request = new HttpRequestMessage(HttpMethod.Get, $"https://localhost:7286/api/categories/{dto.CategoryId}");
             if (!string.IsNullOrEmpty(token))
                 request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
@@ -151,8 +147,6 @@ namespace ProductBusiness.Services
             product.Stock = dto.Stock;
             product.ImageUrl = dto.ImageUrl;
             product.CategoryId = dto.CategoryId;
-
-            await _producerService.SendMessageAsync($"Product: \"{product.Name}\" was updated");
 
             _productRepo.Update(product);
             return await _productRepo.SaveChangesAsync();

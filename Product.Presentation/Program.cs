@@ -66,7 +66,7 @@ builder.Services.AddSwaggerGen(options =>
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<IProductRepository, ProductRepository>();
 builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
-builder.Services.AddScoped<ProducerService>();
+builder.Services.AddHostedService<ConsumerService>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddControllers();
 
