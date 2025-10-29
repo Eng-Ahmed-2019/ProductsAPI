@@ -160,5 +160,15 @@ namespace ProductBusiness.Services
             _productRepo.Delete(product);
             return await _productRepo.SaveChangesAsync();
         }
+
+        public async Task<bool> RestoreStockAsync(int productId, int quantity)
+        {
+            var product = await _productRepo.GetByIdAsync(productId);
+            if (product == null) return false;
+
+            product.Stock += quantity;
+            _productRepo.Update(product);
+            return await _productRepo.SaveChangesAsync();
+        }
     }
 }

@@ -9,5 +9,6 @@ namespace ProductBusiness.Interfaces
         Task<ProductDto> CreateAsync(CreateProductDto dto, string token);
         Task<bool> UpdateAsync(int id, CreateProductDto dto);
         Task<bool> DeleteAsync(int id);
+        Task<bool> RestoreStockAsync(int productId, int quantity);
     }
 }

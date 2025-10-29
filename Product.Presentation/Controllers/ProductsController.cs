@@ -79,5 +79,26 @@ namespace ProductPresentation.Controllers
 
             return Ok(filtered);
         }
+
+        [Authorize(Roles = "User,Admin")]
+        [HttpPost("restore-stock")]
+        public async Task<IActionResult> RestoreStock([FromBody] RestoreStockDto model)
+        {
+            var product = await _productService.GetByIdAsync(model.ProductId, Request.Headers["Authorization"].ToString().Replace("Bearer ", ""));
+            if (product == null)
+                return NotFound($"Product with ID {model.ProductId} not found.");
+
+            var success = await _productService.RestoreStockAsync(model.ProductId, model.Quantity);
+            if (!success)
+                return StatusCode(500, "Failed to restore stock.");
+
+            return Ok(new { message = $"Stock restored for product {model.ProductId} (+{model.Quantity})" });
+        }
+
+        public class RestoreStockDto
+        {
+            public int ProductId { get; set; }
+            public int Quantity { get; set; }
+        }
     }
 }
