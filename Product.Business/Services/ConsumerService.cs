@@ -1,7 +1,5 @@
 ﻿using System.Text;
 using RabbitMQ.Client;
-using System.Text.Json;
-using ProductData.Interfaces;
 using RabbitMQ.Client.Events;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Configuration;
@@ -25,64 +23,51 @@ namespace ProductBusiness.Services
             var factory = new ConnectionFactory
             {
                 HostName = _configuration["RabbitMQ:HostName"] ?? "localhost",
+                Port = 5672, // ✅ أضف المنفذ بوضوح
                 UserName = _configuration["RabbitMQ:UserName"] ?? "guest",
-                Password = _configuration["RabbitMQ:Password"] ?? "guest"
+                Password = _configuration["RabbitMQ:Password"] ?? "guest",
             };
 
-            using var connection = await factory.CreateConnectionAsync();
-            using var channel = await connection.CreateChannelAsync();
-
-            var queueName = _configuration["RabbitMQ:QueueName"] ?? "product_updates";
-
-            await channel.QueueDeclareAsync(queue: queueName,
-                                            durable: false,
-                                            exclusive: false,
-                                            autoDelete: false,
-                                            arguments: null
-            );
-
-            Console.WriteLine($" [Products] Waiting for messages in \"{queueName}\"...");
-
-            var consumer = new AsyncEventingBasicConsumer(channel);
-            consumer.ReceivedAsync += async (model, ea) =>
+            var retries = 5;
+            while (retries-- > 0 && !stoppingToken.IsCancellationRequested)
             {
-                var body = ea.Body.ToArray();
-                var json = Encoding.UTF8.GetString(body);
-                Console.WriteLine($" [Products] Received: {json}");
-
                 try
                 {
-                    var message = JsonSerializer.Deserialize<OrderProductMessage>(json);
-                    if (message != null)
+                    using var connection = await factory.CreateConnectionAsync();
+                    using var channel = await connection.CreateChannelAsync();
+
+                    var queueName = _configuration["RabbitMQ:QueueName"] ?? "product_updates";
+
+                    await channel.QueueDeclareAsync(
+                        queue: queueName,
+                        durable: false,
+                        exclusive: false,
+                        autoDelete: false,
+                        arguments: null
+                    );
+
+                    Console.WriteLine($" [Products] Waiting for messages in \"{queueName}\"...");
+
+                    var consumer = new AsyncEventingBasicConsumer(channel);
+                    consumer.ReceivedAsync += async (model, ea) =>
                     {
-                        using var scope = _scopeFactory.CreateScope();
-                        var repo = scope.ServiceProvider.GetRequiredService<IProductRepository>();
+                        var body = ea.Body.ToArray();
+                        var json = Encoding.UTF8.GetString(body);
+                        Console.WriteLine($" [Products] Received: {json}");
+                        await Task.Yield();
+                    };
 
-                        var product = await repo.GetByIdAsync(message.ProductId);
-                        if (product != null)
-                        {
-                            product.Stock -= message.QuantityOrdered;
-                            if (product.Stock < 0) product.Stock = 0;
+                    await channel.BasicConsumeAsync(queue: queueName, autoAck: true, consumer: consumer);
 
-                            repo.Update(product);
-                            await repo.SaveChangesAsync();
-
-                            Console.WriteLine($" [Products] Updated Product {product.Id} | Remaining Stock: {product.Stock}");
-                        }
-                    }
+                    await Task.Delay(Timeout.Infinite, stoppingToken);
+                    break;
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($" [Products] Error processing message: {ex.Message}");
+                    Console.WriteLine($" [RabbitMQ] Connection failed: {ex.Message}. Retrying...");
+                    await Task.Delay(3000, stoppingToken);
                 }
-                await Task.Yield();
-            };
-
-            await channel.BasicConsumeAsync(queue: queueName,
-                                            autoAck: true,
-                                            consumer: consumer
-            );
-            await Task.Delay(Timeout.Infinite, stoppingToken);
+            }
         }
 
         private class OrderProductMessage
