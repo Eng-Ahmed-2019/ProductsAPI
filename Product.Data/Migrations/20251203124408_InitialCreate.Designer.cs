@@ -11,7 +11,7 @@ using ProductData;
 namespace ProductData.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20251019122354_InitialCreate")]
+    [Migration("20251203124408_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
